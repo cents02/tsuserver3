@@ -586,9 +586,10 @@ class ClientManager:
         for c in self.server.client_manager.clients:
             if c.ipid == temp_ipid:
                 c.clientscon -= 1
-        self.clients.remove(client)
+        
         if client in client.area.afkers:
             client.area.afkers.remove(client)
+        self.clients.remove(client)
     def get_targets(self, client, key, value, local=False, single=False):
         """
         Find players by a combination of identifying data.
