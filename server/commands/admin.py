@@ -27,6 +27,8 @@ __all__ = [
     'ooc_cmd_ooc_unmute',
     'ooc_cmd_bans',
     'ooc_cmd_baninfo',
+    'ooc_cmd_gimp',
+    'ooc_cmd_ungimp',
     'ooc_cmd_ghost'
 ]
 
@@ -418,3 +420,49 @@ def ooc_cmd_ghost(client, arg):
     """
     client.ghost = not client.ghost
     client.send_ooc('Ghosting is now: '+ str(client.ghost))
+
+def ooc_cmd_gimp(client, arg):
+    if not client.is_mod:
+        raise ClientError('You must be authorized to do that.')
+    elif len(arg) == 0:
+        raise ArgumentError('You must specify a target.')
+    try:
+        if len(arg) == 12:
+            targets = client.server.client_manager.get_targets(client, TargetType.IPID, arg, False)
+        elif len(arg) < 12 and arg.isdigit():
+            targets = client.server.client_manager.get_targets(client, TargetType.ID, int(arg), False)
+        else:
+            raise ArgumentError
+    except:
+        raise ArgumentError('You must specify a target. Use /gimp <id> or <ipid>.')
+    if targets:
+        for c in targets:
+            #database.log_misc('kick', client, target=c, data={'reason': reason})
+            database.log_misc('gimped',client, target=c,)
+            c.gimp = True
+        client.send_ooc('Gimped {} targets.'.format(len(targets)))
+    else:
+        client.send_ooc('No targets found.')
+
+def ooc_cmd_ungimp(client, arg):
+    if not client.is_mod:
+        raise ClientError('You must be authorized to do that.')
+    elif len(arg) == 0:
+        raise ArgumentError('You must specify a target.')
+    try:
+        if len(arg) == 12 and arg.isdigit():
+            targets = client.server.client_manager.get_targets(client, TargetType.IPID, arg, False)
+        elif len(arg) < 12 and arg.isdigit():
+            targets = client.server.client_manager.get_targets(client, TargetType.ID, int(arg), False)
+        else:
+            raise ArgumentError
+    except ArgumentError:
+        raise ArgumentError('You must specify a target. Use /gimp <id>.')
+    if targets:
+        for c in targets:
+            database.log_misc('ungimped',client, target=c,)
+            c.gimp = False
+
+        client.send_ooc('Ungimped {} targets.'.format(len(targets)))
+    else:
+        client.send_ooc('No targets found.')

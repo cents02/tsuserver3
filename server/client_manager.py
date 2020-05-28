@@ -18,6 +18,7 @@
 import re
 import time
 from datetime import datetime
+import random
 from heapq import heappop, heappush
 
 from server import database
@@ -50,6 +51,7 @@ class ClientManager:
             self.evi_list = []
             self.disemvowel = False
             self.shaken = False
+            self.gimp = False
             self.charcurse = []
             self.muted_global = False
             self.muted_adverts = False
@@ -92,7 +94,7 @@ class ClientManager:
                 for x in range(self.server.config['wtce_floodguard']
                                ['times_per_interval'])
             ]
-            #security stuff
+            # security stuff
             self.clientscon = 0
             #other stuff
             self.ghost = False
@@ -524,6 +526,10 @@ class ClientManager:
             random.shuffle(parts)
             return ' '.join(parts)
 
+        def gimp_message(self, message):
+            message = self.server.gimp_list
+            return random.choice(message)
+
     def __init__(self, server):
         self.clients = set()
         self.server = server
@@ -549,9 +555,11 @@ class ClientManager:
             transport.write(b'BD#This server is full.#%')
             raise ClientError
 
+        peername = transport.get_extra_info('peername')[0]
+
         c = self.Client(
             self.server, transport, user_id,
-            database.ipid(transport.get_extra_info('peername')[0]))
+            database.ipid(peername))
         self.clients.add(c)
         temp_ipid = c.ipid
         for client in self.server.client_manager.clients:
@@ -578,9 +586,10 @@ class ClientManager:
         for c in self.server.client_manager.clients:
             if c.ipid == temp_ipid:
                 c.clientscon -= 1
-        self.clients.remove(client)
+        
         if client in client.area.afkers:
             client.area.afkers.remove(client)
+        self.clients.remove(client)
     def get_targets(self, client, key, value, local=False, single=False):
         """
         Find players by a combination of identifying data.
@@ -622,7 +631,7 @@ class ClientManager:
                     if client.ipid == value:
                         targets.append(client)
                 elif key == TargetType.AFK:
-                     if client in area.afkers:
+                    if client in area.afkers:
                         targets.append(client)
         return targets
 
@@ -643,10 +652,10 @@ class ClientManager:
         return clients
     def toggle_afk(self, client):
             if client in client.area.afkers:
-                    client.area.broadcast_ooc('{} is no longer AFK.'.format(client.char_name))
-                    client.send_ooc('You are no longer AFK. Welcome back!') #Making the server a bit friendly wouldn't hurt, right?
-                    client.area.afkers.remove(client)
+                client.area.broadcast_ooc('{} is no longer AFK.'.format(client.char_name))
+                client.send_ooc('You are no longer AFK. Welcome back!')  # Making the server a bit friendly wouldn't hurt, right?
+                client.area.afkers.remove(client)
             else:
-                    client.area.broadcast_ooc('{} is now AFK.'.format(client.char_name))
-                    client.send_ooc('You are now AFK. Have a good day!')
-                    client.area.afkers.append(client)
+                client.area.broadcast_ooc('{} is now AFK.'.format(client.char_name))
+                client.send_ooc('You are now AFK. Have a good day!')
+                client.area.afkers.append(client)

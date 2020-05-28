@@ -21,10 +21,9 @@ import unicodedata
 
 import logging
 
-import re
-
 logger_debug = logging.getLogger('debug')
 logger = logging.getLogger('events')
+
 
 from enum import Enum
 from time import localtime, strftime
@@ -228,7 +227,7 @@ class AOProtocol(asyncio.Protocol):
         self.client.send_command('FL', 'yellowtext', 'customobjections',
                                  'flipping', 'fastloading', 'noencryption',
                                  'deskmod', 'evidence', 'modcall_reason',
-                                 'cccc_ic_support', 'arup', 'casing_alerts')
+                                 'cccc_ic_support', 'arup', 'casing_alerts', 'looping_sfx')
 
     def net_cmd_ch(self, _):
         """Reset the client drop timeout (keepalive).
@@ -363,27 +362,32 @@ class AOProtocol(asyncio.Protocol):
 
         target_area = []
         if self.validate_net_cmd(args, self.ArgType.STR, # msg_type
-                                 self.ArgType.STR_OR_EMPTY, self.ArgType.STR,#pre, folder
-                                 self.ArgType.STR, self.ArgType.STR,# anim, text
-                                 self.ArgType.STR, self.ArgType.STR,#pos, sfx
-                                 self.ArgType.INT, self.ArgType.INT,#anim_type, cid
-                                 self.ArgType.INT, self.ArgType.INT_OR_STR,#sfx_delay, button
-                                 self.ArgType.INT, self.ArgType.INT,#evidence, flip
-                                 self.ArgType.INT, self.ArgType.INT):#ding, color
+                                 self.ArgType.STR_OR_EMPTY, self.ArgType.STR,   # pre, folder
+                                 self.ArgType.STR, self.ArgType.STR,            # anim, text
+                                 self.ArgType.STR, self.ArgType.STR,            # pos, sfx
+                                 self.ArgType.INT, self.ArgType.INT,            # anim_type, cid
+                                 self.ArgType.INT, self.ArgType.INT_OR_STR,     # sfx_delay, button
+                                 self.ArgType.INT, self.ArgType.INT,            # evidence, flip
+                                 self.ArgType.INT, self.ArgType.INT):           # ding, color
             # Pre-2.6 validation monstrosity.
             msg_type, pre, folder, anim, text, pos, sfx, anim_type, cid, sfx_delay, button, evidence, flip, ding, color = args
             showname = ""
             charid_pair = -1
             offset_pair = 0
             nonint_pre = 0
+            looping_sfx = 0
+            screenshake = 0
+            frame_screenshake = ""
+            frame_realization = ""
+            frame_sfx = ""
         elif self.validate_net_cmd(
-                args, self.ArgType.STR, self.ArgType.STR_OR_EMPTY,#msg_type, pre
-                self.ArgType.STR, self.ArgType.STR, self.ArgType.STR,#folder, anim, text
-                self.ArgType.STR, self.ArgType.STR, self.ArgType.INT,# pos, sfx, anim_type
-                self.ArgType.INT, self.ArgType.INT, self.ArgType.INT_OR_STR,#cid, sfx_delay, button
-                self.ArgType.INT, self.ArgType.INT, self.ArgType.INT,#evidence, flip, ding
-                self.ArgType.INT, self.ArgType.STR_OR_EMPTY, self.ArgType.INT, #color, showname, charid_pair
-                self.ArgType.INT, self.ArgType.INT): #offset_pair, nonint_pre
+                args, self.ArgType.STR, self.ArgType.STR_OR_EMPTY,              # msg_type, pre
+                self.ArgType.STR, self.ArgType.STR, self.ArgType.STR,           # folder, anim, text
+                self.ArgType.STR, self.ArgType.STR, self.ArgType.INT,           # pos, sfx, anim_type
+                self.ArgType.INT, self.ArgType.INT, self.ArgType.INT_OR_STR,    # cid, sfx_delay, button
+                self.ArgType.INT, self.ArgType.INT, self.ArgType.INT,           # evidence, flip, ding
+                self.ArgType.INT, self.ArgType.STR_OR_EMPTY, self.ArgType.INT,  # color, showname, charid_pair
+                self.ArgType.INT, self.ArgType.INT):                            # offset_pair, nonint_pre
             # 2.6+ validation monstrosity.
             msg_type, pre, folder, anim, text, pos, sfx, anim_type, cid, sfx_delay, button, evidence, flip, ding, color, showname, charid_pair, offset_pair, nonint_pre = args
             if len(showname
@@ -391,6 +395,17 @@ class AOProtocol(asyncio.Protocol):
                 self.client.send_ooc(
                     "Showname changes are forbidden in this area!")
                 return
+
+        elif self.validate_net_cmd(args, 
+                                   self.ArgType.STR, self.ArgType.STR_OR_EMPTY, self.ArgType.STR, self.ArgType.STR,                                  
+                                   self.ArgType.STR, self.ArgType.STR, self.ArgType.STR, self.ArgType.INT,
+                                   self.ArgType.INT, self.ArgType.INT, self.ArgType.INT_OR_STR, self.ArgType.INT,
+                                   self.ArgType.INT, self.ArgType.INT, self.ArgType.INT, self.ArgType.STR_OR_EMPTY,
+                                   self.ArgType.INT, self.ArgType.INT, self.ArgType.INT, self.ArgType.INT, self.ArgType.INT, self.ArgType.STR_OR_EMPTY, self.ArgType.STR_OR_EMPTY, self.ArgType.STR_OR_EMPTY):
+                                   #2.7 AOV hell check
+            msg_type, pre, folder, anim, text, pos, sfx, anim_type, cid, sfx_delay, button, evidence, flip, ding, color, showname, charid_pair, offset_pair, nonint_pre, looping_sfx, screenshake, frame_screenshake, frame_realization, frame_sfx = args
+            if len(showname) > 0 and not self.client.area.showname_changes_allowed:
+                self.client.send_host_message("Showname changes are forbidden in this area!")                       
         else:
             return
         if self.client.area.is_iniswap(self.client, pre, anim,
@@ -450,9 +465,9 @@ class AOProtocol(asyncio.Protocol):
             return
         if sfx_delay < 0:
             return
-        if '4' in button and "<and>" not in button:
-            if not button.isdigit():
-               return
+        if button.startswith('4'):
+            if not (button == '4' or button.startswith('4<and>')):
+                return
         if evidence < 0:
             return
         if ding not in (0, 1):
@@ -503,9 +518,21 @@ class AOProtocol(asyncio.Protocol):
             if pos not in ('def', 'pro', 'hld', 'hlp', 'jud', 'wit', 'jur',
                            'sea'):
                 return
+
+        max_char = 0
+        try:
+            max_char = int(self.server.config['max_chars'])
+        except:
+            max_char = 256
+
+        if len(text) > max_char:
+            return
+            
         msg = self.dezalgo(text)[:256]
         if self.client.shaken:
             msg = self.client.shake_message(msg)
+        if self.client.gimp:  # If you're gimped, gimp message.
+            msg = self.client.gimp_message(msg)
         if self.client.disemvowel:
             msg = self.client.disemvowel_message(msg)
         self.client.pos = pos
@@ -552,24 +579,28 @@ class AOProtocol(asyncio.Protocol):
                                       button, self.client.evi_list[evidence],
                                       flip, ding, color, showname, charid_pair,
                                       other_folder, other_emote, offset_pair,
-                                      other_offset, other_flip, nonint_pre)
+                                      other_offset, other_flip, nonint_pre, looping_sfx, screenshake, frame_screenshake, frame_realization, frame_sfx)
 
-        self.client.area.send_owner_command(
-            'MS', msg_type, pre, folder, anim,
-            '[' + self.client.area.abbreviation + ']' + msg, pos, sfx,
-            anim_type, cid, sfx_delay, button, self.client.evi_list[evidence],
-            flip, ding, color, showname, charid_pair, other_folder,
-            other_emote, offset_pair, other_offset, other_flip, nonint_pre)
+        self.client.area.send_owner_command('MS', msg_type, pre, folder, anim,
+                                            '[' + self.client.area.abbreviation + ']' + msg, pos, sfx, anim_type, cid,
+                                            sfx_delay, button, self.client.evi_list[evidence], flip, ding, color,
+                                            showname,
+                                            charid_pair, other_folder, other_emote, offset_pair, other_offset,
+                                            other_flip, nonint_pre, looping_sfx, screenshake, frame_screenshake, frame_realization, frame_sfx)
 
-        self.server.area_manager.send_remote_command(
-            target_area, 'MS', msg_type, pre, folder, anim, msg, pos, sfx,
-            anim_type, cid, sfx_delay, button, self.client.evi_list[evidence],
-            flip, ding, color, showname, charid_pair, other_folder,
-            other_emote, offset_pair, other_offset, other_flip, nonint_pre)
+        self.server.area_manager.send_remote_command(target_area, 'MS', msg_type, pre, folder, anim, msg, pos, sfx,
+                                                     anim_type, cid,
+                                                     sfx_delay, button, self.client.evi_list[evidence], flip, ding,
+                                                     color, showname,
+                                                     charid_pair, other_folder, other_emote, offset_pair, other_offset,
+                                                     other_flip, nonint_pre, looping_sfx, screenshake, frame_screenshake, frame_realization, frame_sfx)
 
         self.client.area.set_next_msg_delay(len(msg))
-        database.log_ic(self.client, self.client.area, showname, msg)
-
+        if(bool(self.server.config['log_chat'])):
+            database.log_ic(self.client, self.client.area, showname, msg)
+        else:
+            database.log_buffer(f'[{self.client.area.abbreviation}] {showname}/{self.client.char_name}' +
+                          f'/{self.client.name} ({self.client.ipid}): {msg}')
         if (self.client.area.is_recording):
             self.client.area.recorded_messages.append(args)
 
@@ -646,8 +677,11 @@ class AOProtocol(asyncio.Protocol):
                 'CT',
                 '[' + self.client.area.abbreviation + ']' + self.client.name,
                 args[1])
-            database.log_room('ooc', self.client, self.client.area, message=args[1])
-
+            if(bool(self.server.config['log_chat'])):
+                database.log_room('ooc', self.client, self.client.area, message=args[1])
+            else:
+                database.log_buffer('[OOC]' + f'[{self.client.area.abbreviation}] {self.client.char_name}' +
+                          f'/{self.client.name} ({self.client.ipid}): {args[1]}')
     def net_cmd_mc(self, args):
         """Play music.
 
@@ -776,7 +810,7 @@ class AOProtocol(asyncio.Protocol):
     def net_cmd_setcase(self, args):
         """Sets the casing preferences of the given client.
 
-        SETCASE#<cases:string>#<will_cm:int>#<will_def:int>#<will_pro:int>#<will_judge:int>#<will_jury:int>#<will_steno:int>#%
+                SETCASE#<cases:string>#<will_cm:int>#<will_def:int>#<will_pro:int>#<will_judge:int>#<will_jury:int>#<will_steno:int>#<will_witness:int>#%
 
         Note: Though all but the first arguments are ints, they technically behave as bools of 0 and 1 value.
 
@@ -788,6 +822,7 @@ class AOProtocol(asyncio.Protocol):
         self.client.casing_jud = args[4] == "1"
         self.client.casing_jur = args[5] == "1"
         self.client.casing_steno = args[6] == "1"
+        self.client.casing_wit = args[7] == "1"
 
     def net_cmd_casea(self, args):
         """Announces a case with a title, and specific set of people to look for.
@@ -805,8 +840,7 @@ class AOProtocol(asyncio.Protocol):
                     'Please wait 60 seconds between case announcements!')
                 return
 
-            if not args[1] == "1" and not args[2] == "1" and not args[
-                    3] == "1" and not args[4] == "1" and not args[5] == "1":
+            if not ("1" in args[1:]):
                 self.client.send_ooc(
                     'You should probably announce the case to at least one person.'
                 )
@@ -815,24 +849,23 @@ class AOProtocol(asyncio.Protocol):
                 self.client.char_name, self.client.id, args[0])
 
             lookingfor = [p for p, q in \
-                zip(['defense', 'prosecutor', 'judge', 'juror', 'stenographer'], args[1:])
+                zip(['defense', 'prosecutor', 'judge', 'juror', 'stenographer', 'witness'], args[1:])
+
                 if q == '1']
 
             msg += ', '.join(lookingfor) + '.\r\n=================='
 
             self.client.server.send_all_cmd_pred('CASEA', msg, args[1],
                                                  args[2], args[3], args[4],
-                                                 args[5], '1')
+                                                 args[5], args[6], '1')
 
             self.client.set_case_call_delay()
 
             log_data = {k: v for k, v in \
-                zip(('message', 'def', 'pro', 'jud', 'jur', 'steno'), args)}
+                zip(('message', 'def', 'pro', 'jud', 'jur', 'steno', 'wit'), args)}
             database.log_room('case', self.client, self.client.area, message=log_data)
         else:
-            self.client.send_ooc(
-                'You cannot announce a case in an area where you are not a CM!'
-            )
+            self.client.send_ooc('You cannot announce a case in an area where you are not a CM!')
 
     def net_cmd_hp(self, args):
         """Sets the penalty bar.
@@ -951,7 +984,7 @@ class AOProtocol(asyncio.Protocol):
                 pred=lambda c: c.is_mod)
             self.client.set_mod_call_delay()
             database.log_room('modcall', self.client, self.client.area, message=args[0])
-
+        database.dump_log(self.client.area.abbreviation,args[0],self.client)
     def net_cmd_opKICK(self, args):
         """
         Unused; kick a user from the client UI.
