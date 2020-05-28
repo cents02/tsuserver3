@@ -668,6 +668,10 @@ class AOProtocol(asyncio.Protocol):
                 arg = spl[1][:256]
             try:
                 called_function = f'ooc_cmd_{cmd}'
+                if cmd == 'g' or cmd == 'gm':
+                    if(not bool(self.server.config['log_chat'])):
+                        database.log_buffer(f'[{cmd}][OOC]' + f'[{self.client.area.abbreviation}] {self.client.char_name}' +
+                          f'/{self.client.name} ({self.client.ipid}): {args[1]}')
                 if cmd == 'help' and arg != '':
                     self.client.send_ooc(commands.help(f'ooc_cmd_{arg}'))
                 elif not hasattr(commands, called_function):
@@ -992,7 +996,8 @@ class AOProtocol(asyncio.Protocol):
                 pred=lambda c: c.is_mod)
             self.client.set_mod_call_delay()
             database.log_room('modcall', self.client, self.client.area, message=args[0])
-        database.dump_log(self.client.area.abbreviation,args[0],self.client)
+        if(not bool(self.server.config['log_chat'])):
+            database.dump_log(self.client.area.abbreviation,args[0],self.client)
     def net_cmd_opKICK(self, args):
         """
         Unused; kick a user from the client UI.
