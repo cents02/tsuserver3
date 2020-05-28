@@ -18,7 +18,7 @@
 import asyncio
 import re
 import unicodedata
-
+import datetime
 import logging
 
 logger_debug = logging.getLogger('debug')
@@ -599,7 +599,8 @@ class AOProtocol(asyncio.Protocol):
         if(bool(self.server.config['log_chat'])):
             database.log_ic(self.client, self.client.area, showname, msg)
         else:
-            database.log_buffer(f'[{self.client.area.abbreviation}] {showname}/{self.client.char_name}' +
+            time = str( str(datetime.datetime.now().time()))[:-7]
+            database.log_buffer(f'[{time}]' + f'[{self.client.area.abbreviation}] {showname}/{self.client.char_name}' +
                           f'/{self.client.name} ({self.client.ipid}): {msg}')
         if (self.client.area.is_recording):
             self.client.area.recorded_messages.append(args)
@@ -656,7 +657,8 @@ class AOProtocol(asyncio.Protocol):
                 called_function = f'ooc_cmd_{cmd}'
                 if cmd == 'g' or cmd == 'gm':
                     if(not bool(self.server.config['log_chat'])):
-                        database.log_buffer(f'[{cmd}][OOC]' + f'[{self.client.area.abbreviation}] {self.client.char_name}' +
+                        time =  str(datetime.datetime.now().time())[:-7]
+                        database.log_buffer(f'[{time}]'+f'[{cmd}][OOC]' + f'[{self.client.area.abbreviation}] {self.client.char_name}' +
                           f'/{self.client.name} ({self.client.ipid}): {args[1]}')
                 if cmd == 'help' and arg != '':
                     self.client.send_ooc(commands.help(f'ooc_cmd_{arg}'))
@@ -684,7 +686,8 @@ class AOProtocol(asyncio.Protocol):
             if(bool(self.server.config['log_chat'])):
                 database.log_room('ooc', self.client, self.client.area, message=args[1])
             else:
-                database.log_buffer('[OOC]' + f'[{self.client.area.abbreviation}] {self.client.char_name}' +
+                time =  str(datetime.datetime.now().time())[:-7]
+                database.log_buffer(f'[{time}]'+'[OOC]' + f'[{self.client.area.abbreviation}] {self.client.char_name}' +
                           f'/{self.client.name} ({self.client.ipid}): {args[1]}')
     def net_cmd_mc(self, args):
         """Play music.
