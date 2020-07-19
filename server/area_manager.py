@@ -51,7 +51,7 @@ class AreaManager:
             self.id = area_id
             self.name = name
             self.background = background
-            self.bg_lock = bg_lock
+            self.bg_lock = bool(bg_lock)
             self.server = server
             self.music_looper = None
             self.next_message_time = 0
@@ -419,6 +419,16 @@ class AreaManager:
             self.current_music_player_ipid = client.ipid
             self.current_music = name
 
+        def update_evidence_list(self, client=None):
+            clients = []
+            if client == None:
+                clients = list(self.clients)
+            else:
+                clients.append(client)
+
+            for c in clients:
+                c.send_command('LE', *self.get_evidence_list(c)) #Update evidence list as well
+
         def get_evidence_list(self, client):
             """
             Get the evidence list of the area.
@@ -567,3 +577,4 @@ class AreaManager:
         for area in self.areas:
             lock_list.append(area.is_locked.name)
         self.server.send_arup(lock_list)
+
